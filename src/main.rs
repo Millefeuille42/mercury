@@ -1,11 +1,10 @@
 mod commands;
 
 use std::collections::HashMap;
+use std::error::Error;
 use std::io;
-use std::string::ToString;
 
-const PROGRAM_DIR: String = "/mercury".to_string();
-const CONFIG_FILE: String = format!("{}/conf.ini", PROGRAM_DIR);
+const CONFIG_FILE: &str = "mercury/conf.ini";
 
 struct UserConfigDir;
 
@@ -29,10 +28,10 @@ impl UserConfigDir {
 }
 
 fn command_manager(command: &str) {
-	static mut COMMANDS: Option<HashMap<&'static str, fn(Vec<&str>)>> = None;
+	static mut COMMANDS: Option<HashMap<&'static str, fn(Vec<&str>) -> Result<(), Box<dyn Error>>>> = None;
 
 	let mut command = command.trim();
-	if command.starts_with("/") {
+	if ! command.starts_with("/") {
 		return;
 	}
 	command = command.trim_matches('/');
@@ -41,15 +40,20 @@ fn command_manager(command: &str) {
 
 	unsafe {
 		if COMMANDS.is_none() {
+			println!("Init command");
 			let mut map = HashMap::new();
-			map.insert("connect", commands::connect::connect as fn(Vec<&str>));
+			map.insert("connect", commands::connect::connect as fn(Vec<&str>) -> Result<(), Box<dyn Error>>);
 			map.insert("quit", commands::quit::quit);
 			COMMANDS = Some(map);
 		}
 
 		if let Some(command_map) = &COMMANDS {
 			if let Some(command_func) = command_map.get(args[0]) {
-				command_func(args);
+				println!("Found command");
+				match command_func(args) {
+					Err(err) => {eprintln!("{}", err.to_string())}
+					_ => {}
+				}
 			} else {
 				println!("Invalid command");
 			}
@@ -58,10 +62,6 @@ fn command_manager(command: &str) {
 }
 
 fn main() {
-	if !std::path::Path::new(&UserConfigDir::get_config_file()).exists() {
-
-	}
-
 	loop {
 		let mut input = String::new();
 		io::stdin().read_line(&mut input).expect("Failed to read line");
