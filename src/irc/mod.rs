@@ -1,6 +1,6 @@
-mod irc_message_parsed;
-mod irc_context;
-mod irc_commands;
+pub(crate) mod irc_message_parsed;
+pub(crate) mod irc_context;
+pub(crate) mod irc_commands;
 mod irc_replies;
-mod irc_errors;
+pub(crate) mod irc_errors;
 mod irc_message_handler;
