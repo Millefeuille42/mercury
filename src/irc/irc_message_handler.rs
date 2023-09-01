@@ -5,5 +5,5 @@ use crate::irc::irc_message_parsed::IRCMessageParsed;
 pub trait IRCMessageHandler {
 	fn new(command: &str) -> Result<Self, IRCError> where Self: Sized;
 	fn format(&self, message: &str) -> String;
-	fn craft(&self, command: &str, ctx: &mut IRCContext) -> Result<IRCMessageParsed, IRCError>;
+	fn craft(&self, command: &str, data: &str, ctx: IRCContext) -> Result<IRCMessageParsed, IRCError>;
 }
