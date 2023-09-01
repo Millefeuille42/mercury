@@ -11,11 +11,15 @@ use std::io;
 use std::sync::Arc;
 use tokio::select;
 use tokio::sync::Mutex;
+use crate::irc::irc_context::IRCContext;
+use crate::irc::irc_message_parsed::IRCMessageParsed;
 
 async fn command_manager(command: String, channels: IRCCommChannels<'_>, ctx: &mut IRCContext) {
 	let mut command = command.trim();
 	if !command.starts_with('/') {
-		if let Err(err) = channels.write(command).await {
+		let ctx_ = ctx.clone();
+		let message = IRCMessageParsed::craft("PRIVMSG", command, ctx_).ok().unwrap();
+		if let Err(err) = channels.write(message.as_raw().as_str()).await {
 			eprintln!("{}", err)
 		}
 		return;

@@ -34,7 +34,6 @@ enum Commands {
 }
 
 impl Commands {
-	async fn execute<'a>(&self, args: Vec<&str>, channels: IRCCommChannels<'a>) -> Result<(), Box<dyn Error>> {
 	fn new(command: &str) -> Self {
 		match command {
 			"connect" => Commands::Connect,
@@ -60,6 +59,8 @@ impl Commands {
 			_ => Commands::Unknown
 		}
 	}
+
+	async fn execute<'a>(&self, args: Vec<&str>, channels: IRCCommChannels<'a>, ctx: &mut IRCContext) -> Result<(), Box<dyn Error>> {
 		match self {
 			Commands::Connect => connect(args, channels).await,
 			Commands::Quit => quit(args, channels).await
