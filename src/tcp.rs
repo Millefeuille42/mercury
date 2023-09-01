@@ -15,7 +15,15 @@ async fn wait_for_connection(conn_rx: Arc<Mutex<mpsc::Receiver<String>>>) -> Opt
 	//println!("[DEBUG] Got somewhere to connect to");
 	match addr {
 		// TODO handle error
-		Some(addr) => TcpStream::connect(addr).await.ok(),
+		Some(addr) => {
+			if addr == "disconnect" {
+				println!("Disconnected from server");
+				return None;
+			}
+			let ret = TcpStream::connect(addr).await.ok();
+			println!("Connected");
+			ret
+		},
 		None => None
 	}
 }
@@ -34,7 +42,7 @@ async fn handle_message(buf: [u8; 1024], len: Result<usize, std::io::Error>) -> 
 	// TODO return result instead of bool
 	match len {
 		Ok(n) if n == 0 => {
-			println!("Disconnected from server...");
+			println!("Disconnected from server");
 			false
 		},
 		Ok(_) => {
@@ -68,6 +76,9 @@ pub fn start_poll_thread(
 				Some(tcp_stream) => {
 					//println!("[DEBUG] Connected, waiting for action");
 					select! {
+						ret = wait_for_connection(conn_rx) => {
+							stream = ret;
+						}
 						command = wait_for_command(send_rx) => {
 							handle_command(tcp_stream, command).await
 						},

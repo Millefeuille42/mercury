@@ -23,6 +23,10 @@ impl<'a> IRCCommChannels<'a> {
 		self.conn_tx.send(addr).await
 	}
 
+	pub async fn disconnect(&self) -> Result<(), SendError<String>> {
+		self.conn_tx.send("disconnect".to_string()).await
+	}
+
 	pub async fn write(&self, buf: &str) -> Result<(), SendError<String>> {
 		//println!("[DEBUG] Sending message signal");
 		self.send_tx.send(format!("{}\r\n", buf)).await
