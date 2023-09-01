@@ -6,14 +6,14 @@ use crate::irc::irc_replies::IRCReplies;
 
 // TODO might set as option since none of the fields are mandatory
 pub struct IRCMessageParsed {
-	prefix: String,
-	command: String,
-	target: String,
-	data: String
+	pub(crate) prefix: String,
+	pub(crate) command: String,
+	pub(crate) target: String,
+	pub(crate) data: String
 }
 
 impl IRCMessageParsed {
-	pub fn parse(raw: String) -> Self {
+	pub fn parse(_: String) -> Self {
 		// TODO parsing with regex, isolating in the proper fields with named capture groups
 		todo!()
 	}
@@ -22,12 +22,12 @@ impl IRCMessageParsed {
 		format!("{} {} {} {}", self.prefix, self.command, self.target, self.data)
 	}
 
-	pub fn craft(command: &str, ctx: &mut IRCContext) -> Result<IRCMessageParsed, IRCError> {
+	pub fn craft(command: &str, data: &str, ctx: IRCContext) -> Result<IRCMessageParsed, IRCError> {
 		match IRCCommands::new(command) {
-			Ok(val) => val.craft(command, ctx),
+			Ok(val) => val.craft(command, data, ctx),
 			Err(_) => match IRCReplies::new(command) {
-				Ok(val) => val.craft(command, ctx),
-				Err(_) => IRCCommands::Unknown.craft(command, ctx)
+				Ok(val) => val.craft(command, data, ctx),
+				Err(_) => IRCCommands::Unknown.craft(command, data, ctx)
 			},
 		}
 	}
