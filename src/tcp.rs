@@ -4,6 +4,8 @@ use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
+use crate::irc::irc_context::IRCContext;
+use crate::irc::irc_message_parsed::IRCMessageParsed;
 
 async fn wait_for_command(send_rx: Arc<Mutex<mpsc::Receiver<String>>>) -> Option<String> {
 	send_rx.lock().await.recv().await
@@ -37,23 +39,38 @@ async fn handle_command(tcp_stream: &mut TcpStream, command: Option<String>) {
 	}
 }
 
-async fn handle_message(buf: [u8; 1024], len: Result<usize, std::io::Error>) -> bool {
+async fn handle_message(buf: [u8; 1024], len: Result<usize, std::io::Error>) -> Option<String> {
 	//println!("[DEBUG] Got data from server");
-	// TODO return result instead of bool
+	// TODO return Result instead of Option
 	match len {
 		Ok(n) if n == 0 => {
 			println!("Disconnected from server");
-			false
+			None
 		},
 		Ok(_) => {
 			let message = String::from_utf8_lossy(&buf).to_string();
 			println!("{}", message);
-			true
+			Some(message)
 		}
 		Err(err) => {
 			eprintln!("Error with server: {}", err);
-			false
+			None
 		},
+	}
+}
+
+async fn handle_irc_message(message: String, tcp_stream: &mut TcpStream) {
+	// TODO do proper handling with matches and stuff
+	if message.starts_with("PING") {
+		if let Some(colon_idx) = message.find(':') {
+			let code: &str = message[colon_idx + 1..].trim();
+			let message = IRCMessageParsed::craft(
+				"PONG", code, IRCContext::new()
+			).ok().unwrap();
+			// TODO handle error
+			tcp_stream.write(message.as_raw().as_bytes()).await.ok();
+			println!("-> {}", message.as_raw());
+		}
 	}
 }
 
@@ -66,7 +83,7 @@ pub fn start_poll_thread(
 		loop {
 			let send_rx = send_rx.clone();
 			let conn_rx = conn_rx.clone();
-			// TODO Is this level of indent necessary ?
+			// TODO is this level of indent necessary ?
 			//println!("[DEBUG] Polling");
 			let mut buf: [u8; 1024] = [0; 1024];
 			match stream.as_mut() {
@@ -83,9 +100,11 @@ pub fn start_poll_thread(
 							handle_command(tcp_stream, command).await
 						},
 						n = tcp_stream.read(&mut buf) => {
-							if !handle_message(buf, n).await {
-								stream = None;
-							}
+							let message = handle_message(buf, n).await;
+							match message {
+								Some(message) => handle_irc_message(message, tcp_stream).await,
+								None => {stream = None}
+							};
 						}
 					}
 				}
