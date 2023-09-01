@@ -18,9 +18,9 @@ impl Commands {
 }
 
 pub async fn execute<'a>(args: Vec<&str>, channels: IRCCommChannels<'a>) -> Result<(), Box<dyn Error>> {
-	match args[0] {
-		"connect" => Commands::Connect.execute(args, channels).await,
-		"quit" => Commands::Quit.execute(args, channels).await,
-		&_ => Err("command not found!".to_string().into())
+	match args.first() {
+		Some(&"connect") => Commands::Connect.execute(args, channels).await,
+		Some(&"quit") => Commands::Quit.execute(args, channels).await,
+		_ => Err("command not found!".to_string().into())
 	}
 }

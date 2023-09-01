@@ -1,6 +1,7 @@
 mod prompt_commands;
 mod utils;
 mod tcp;
+mod irc;
 
 use utils::irc_comm_channels::IRCCommChannels;
 use utils::irc_comm_channels::spawn_channel;
