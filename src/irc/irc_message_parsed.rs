@@ -19,7 +19,16 @@ impl IRCMessageParsed {
 	}
 
 	pub fn as_raw(&self) -> String {
-		format!("{} {} {} {}", self.prefix, self.command, self.target, self.data)
+		format!(
+			"{}{}{}{}{}{}{}",
+			self.prefix,
+			if !self.prefix.is_empty() { " " } else { "" },
+			self.command,
+			if !self.command.is_empty() { " " } else { "" },
+			self.target,
+			if !self.target.is_empty() { " " } else { "" },
+			self.data
+		)
 	}
 
 	pub fn craft(command: &str, data: &str, ctx: IRCContext) -> Result<IRCMessageParsed, IRCError> {
