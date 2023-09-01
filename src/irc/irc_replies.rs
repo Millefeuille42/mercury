@@ -290,7 +290,7 @@ impl IRCMessageHandler for IRCReplies {
 		};
 
 		match found {
-			IRCReplies::Unknown => Err(IRCError::CommandNotFound(reply.to_string())),
+			IRCReplies::Unknown => Err(IRCError::ReplyNotFound(reply.to_string())),
 			_ => Ok(found)
 		}
 	}
@@ -301,9 +301,9 @@ impl IRCMessageHandler for IRCReplies {
 		}
 	}
 
-	fn craft(&self, command: &str, ctx: &mut IRCContext) -> Result<IRCMessageParsed, IRCError> {
+	fn craft(&self, command: &str, _: &str, _: IRCContext) -> Result<IRCMessageParsed, IRCError> {
 		match self {
-			_ => Err(IRCError::CommandNotFound(command.to_string()))
+			_ => Err(IRCError::ReplyNotFound(command.to_string()))
 		}
 	}
 }
