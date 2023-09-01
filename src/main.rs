@@ -1,76 +1,62 @@
-mod commands;
+mod prompt_commands;
+mod utils;
+mod tcp;
 
-use std::collections::HashMap;
-use std::error::Error;
+use utils::irc_comm_channels::IRCCommChannels;
+use utils::irc_comm_channels::spawn_channel;
+use tcp::start_poll_thread;
+
 use std::io;
+use std::sync::Arc;
+use tokio::select;
+use tokio::sync::Mutex;
 
-const CONFIG_FILE: &str = "mercury/conf.ini";
-
-struct UserConfigDir;
-
-impl UserConfigDir {
-	fn get() -> Option<String> {
-		if cfg!(target_os = "windows") {
-			std::env::var("APPDATA").ok()
-		} else if cfg!(target_os = "linux") {
-			std::env::var("HOME").map(|home| format!("{}/.config/", home)).ok()
-		} else {
-			None
-		}
-	}
-
-	fn get_config_file() -> Option<String> {
-		match UserConfigDir::get() {
-			Some(config_dir) => Some(format!("{}{}", config_dir, CONFIG_FILE)),
-			None => None
-		}
-	}
-}
-
-fn command_manager(command: &str) {
-	static mut COMMANDS: Option<HashMap<&'static str, fn(Vec<&str>) -> Result<(), Box<dyn Error>>>> = None;
-
+async fn command_manager(command: String, channels: IRCCommChannels<'_>) {
 	let mut command = command.trim();
-	if ! command.starts_with("/") {
+	if !command.starts_with('/') {
+		if let Err(err) = channels.write(command).await {
+			eprintln!("{}", err)
+		}
 		return;
 	}
 	command = command.trim_matches('/');
 
 	let args: Vec<&str> = command.split_whitespace().collect();
 
-	unsafe {
-		if COMMANDS.is_none() {
-			println!("Init command");
-			let mut map = HashMap::new();
-			map.insert("connect", commands::connect::connect as fn(Vec<&str>) -> Result<(), Box<dyn Error>>);
-			map.insert("quit", commands::quit::quit);
-			COMMANDS = Some(map);
-		}
-
-		if let Some(command_map) = &COMMANDS {
-			if let Some(command_func) = command_map.get(args[0]) {
-				println!("Found command");
-				match command_func(args) {
-					Err(err) => {eprintln!("{}", err.to_string())}
-					_ => {}
-				}
-			} else {
-				println!("Invalid command");
-			}
-		}
+	if let Err(err) = prompt_commands::commands::execute(args, channels).await {
+		eprintln!("{}", err)
 	}
 }
 
-fn main() {
+async fn prompt_user() -> String {
+	//println!("[DEBUG] Prompting");
+	let mut input = String::new();
+	io::stdin().read_line(&mut input).expect("Failed to read line");
+
+	return input.trim().to_string();
+}
+
+#[tokio::main]
+async fn main() {
+	let (send_tx, send_rx) = spawn_channel();
+	let (conn_tx, conn_rx) = spawn_channel();
+	let send_rx = Arc::new(Mutex::new(send_rx));
+	let conn_rx = Arc::new(Mutex::new(conn_rx));
+
+	let mut poll_handle = start_poll_thread(send_rx, conn_rx);
 	loop {
-		let mut input = String::new();
-		io::stdin().read_line(&mut input).expect("Failed to read line");
-
-		let input = input.trim();
-		if input.eq_ignore_ascii_case("exit") {
-			break;
+		let rx_channels = IRCCommChannels::new(
+			&send_tx,
+			&conn_tx
+		);
+		select! {
+			_ = &mut poll_handle => {
+				//println!("[DEBUG] Got in poll branch");
+			},
+			input = prompt_user() => {
+				//println!("[DEBUG] Got in prompt branch");
+				command_manager(input, rx_channels).await;
+			}
 		}
-
-		command_manager(input);
 	}
 }
