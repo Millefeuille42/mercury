@@ -119,10 +119,10 @@ impl IRCMessageParsed {
 	pub fn as_formatted(&self) -> String {
 		let command = self.command.as_str();
 		match IRCCommands::new(command) {
-			Ok(val) => val.format(command),
+			Ok(val) => val.format(self.clone()),
 			Err(_) => match IRCReplies::new(command) {
-				Ok(val) => val.format(command),
-				Err(_) => IRCCommands::Unknown.format(command)
+				Ok(val) => val.format(self.clone()),
+				Err(_) => IRCCommands::Unknown.format(self.clone())
 			},
 		}
 	}

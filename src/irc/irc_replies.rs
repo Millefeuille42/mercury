@@ -5,7 +5,7 @@ use crate::irc::irc_message_parsed::IRCMessageParsed;
 
 pub enum IRCReplies {
 	RplWelcome,
-	RplYouRHost,
+	RplYourHost,
 	RplCreated,
 	RplMyInfo,
 	RplBounce,
@@ -141,6 +141,9 @@ pub enum IRCReplies {
 	ErrNoOperHost,
 	ErrUModeUnknownFlag,
 	ErrUsersDontMatch,
+	RplHostHidden,
+	RplLocalUsers,
+	RplGlobalUsers,
 	Unknown
 }
 
@@ -150,7 +153,7 @@ impl IRCMessageHandler for IRCReplies {
 		let reply = reply.as_str();
 		let found = match reply {
 			"001" => IRCReplies::RplWelcome, //RPL_WELCOME
-			"002" => IRCReplies::RplYouRHost, //RPL_YOURHOST
+			"002" => IRCReplies::RplYourHost, //RPL_YOURHOST
 			"003" => IRCReplies::RplCreated, //RPL_CREATED
 			"004" => IRCReplies::RplMyInfo, //RPL_MYINFO
 			"005" => IRCReplies::RplBounce, //RPL_BOUNCE
@@ -286,6 +289,9 @@ impl IRCMessageHandler for IRCReplies {
 			"491" => IRCReplies::ErrNoOperHost, //ERR_NOOPERHOST
 			"501" => IRCReplies::ErrUModeUnknownFlag, //ERR_UMODEUNKNOWNFLAG
 			"502" => IRCReplies::ErrUsersDontMatch, //ERR_USERSDONTMATCH
+			"396" => IRCReplies::RplHostHidden, //RPL_HOSTHIDDEN
+			"265" => IRCReplies::RplLocalUsers, //RPL_HOSTHIDDEN
+			"266" => IRCReplies::RplGlobalUsers, //RPL_HOSTHIDDEN
 			_ => IRCReplies::Unknown
 		};
 
@@ -295,9 +301,24 @@ impl IRCMessageHandler for IRCReplies {
 		}
 	}
 
-	fn format(&self, message: &str) -> String {
+	fn format(&self, message: IRCMessageParsed) -> String {
 		match self {
-			_ => message.to_string()
+			IRCReplies::RplWelcome => format_print_nick_and_data(message),
+			IRCReplies::RplYourHost => format_print_nick_and_data(message),
+			IRCReplies::RplCreated => format_print_nick_and_data(message),
+			IRCReplies::RplMyInfo  => format_print_nick_and_data(message),
+			IRCReplies::RplLUserClient  => format_print_nick_and_data(message),
+			IRCReplies::RplLUserOp  => format_print_nick_and_data(message),
+			IRCReplies::RplLUserUnknown  => format_print_nick_and_data(message),
+			IRCReplies::RplLUserChannels  => format_print_nick_and_data(message),
+			IRCReplies::RplLUserMe  => format_print_nick_and_data(message),
+			IRCReplies::RplLocalUsers  => format_print_nick_and_data(message),
+			IRCReplies::RplGlobalUsers  => format_print_nick_and_data(message),
+			IRCReplies::RplHostHidden => format_print_nick_and_data(message),
+			IRCReplies::RplMotD => format_print_data(message),
+			IRCReplies::RplMotDStart => format_motd_start(),
+			IRCReplies::RplEndOfMotD => format_motd_end(),
+			_ => message.as_raw()
 		}
 	}
 
@@ -306,4 +327,20 @@ impl IRCMessageHandler for IRCReplies {
 			_ => Err(IRCError::ReplyNotFound(command.to_string()))
 		}
 	}
+}
+
+fn format_print_nick_and_data(message: IRCMessageParsed) -> String {
+	let nick = message.parse_prefix().nick;
+	format!("{}: {}", nick, message.data)
+}
+
+fn format_print_data(message: IRCMessageParsed) -> String {
+	message.data.to_string()
+}
+
+fn format_motd_start() -> String {
+	"--- Start of MotD ---".to_string()
+}
+fn format_motd_end() -> String {
+	"--- End of MotD ---".to_string()
 }

@@ -55,6 +55,7 @@ impl IRCMessageHandler for IRCCommands {
     fn new(command: &str) -> Result<Self, IRCError> {
         let command = command.to_uppercase();
         let command = command.as_str();
+        //println!("[DEBUG] Matching command <{:?}>", &command);
         let found = match command {
             "PASS" => IRCCommands::Pass,
             "NICK" => IRCCommands::Nick,
@@ -109,15 +110,16 @@ impl IRCMessageHandler for IRCCommands {
         }
     }
 
-    fn format(&self, message: &str) -> String {
-        match self {
-            IRCCommands::Nick => todo!(),
-            IRCCommands::Join => todo!(),
-            IRCCommands::PrivMsg => todo!(),
-            IRCCommands::Notice => todo!(),
-            IRCCommands::Ping => todo!(),
-            _ => message.to_string(),
-        }
+    fn format(&self, message: IRCMessageParsed) -> String {
+        (match self {
+            IRCCommands::Notice => format_notice,
+            IRCCommands::PrivMsg => format_privmsg,
+            IRCCommands::Join => format_join,
+            IRCCommands::Part => format_part,
+            IRCCommands::Mode => format_mode,
+            IRCCommands::Ping => format_ping,
+            _ => format_unknown,
+        })(message)
     }
 
     fn craft(
@@ -140,6 +142,7 @@ impl IRCMessageHandler for IRCCommands {
     }
 }
 
+// TODO consider moving crafters and formatters to a separate file
 fn craft_nick(data: &str) -> IRCMessageParsed {
     IRCMessageParsed {
         prefix: "".to_string(),
@@ -241,4 +244,48 @@ fn craft_away(data: &str) -> IRCMessageParsed {
         target: "".to_string(),
         data: data.to_string(),
     }
+}
+
+fn format_unknown(message: IRCMessageParsed) -> String {
+    format!("<UNKNOWN> {}", message.as_raw())
+}
+
+fn format_notice(message: IRCMessageParsed) -> String {
+    let nick = message.parse_prefix().nick;
+    format!("NOTICE <{}>: {}", nick, message.data)
+}
+
+fn format_privmsg(message: IRCMessageParsed) -> String {
+    let nick = message.parse_prefix().nick;
+    if message.data.starts_with("\x01ACTION") {
+        let action = message.data
+            .trim_start_matches("\x01ACTION")
+            .trim_end_matches('\x01')
+            .trim();
+        format!("* {} {}", nick, action);
+    }
+    format!("{} <{}>: {}", message.target, nick, message.data)
+}
+
+fn format_join(message: IRCMessageParsed) -> String {
+    let nick = message.parse_prefix().nick;
+    format!("{} has joined {}", nick, message.data)
+}
+
+fn format_part(message: IRCMessageParsed) -> String {
+    let nick = message.parse_prefix().nick;
+    format!("{} has left {}{}", nick, message.target,
+        if message.data.is_empty() {message.data} else {format!(" ({})", message.data)}
+    )
+}
+
+// TODO Handle better in channel user modes
+// TODO Handle better channel modes
+fn format_mode(message: IRCMessageParsed) -> String {
+    let nick = message.parse_prefix().nick;
+    format!("{} mode {} {}", nick, message.target, message.data)
+}
+
+fn format_ping(message: IRCMessageParsed) -> String {
+    format!("[DEBUG] got ping with code: {}", message.data)
 }
