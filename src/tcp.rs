@@ -1,10 +1,13 @@
+use std::io::Error;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
+use crate::irc::irc_commands::IRCCommands;
 use crate::irc::irc_context::IRCContext;
+use crate::irc::irc_message_handler::IRCMessageHandler;
 use crate::irc::irc_message_parsed::IRCMessageParsed;
 
 async fn wait_for_command(send_rx: Arc<Mutex<mpsc::Receiver<String>>>) -> Option<String> {
@@ -39,39 +42,73 @@ async fn handle_command(tcp_stream: &mut TcpStream, command: Option<String>) {
 	}
 }
 
-async fn handle_message(buf: [u8; 1024], len: Result<usize, std::io::Error>) -> Option<String> {
-	//println!("[DEBUG] Got data from server");
-	// TODO return Result instead of Option
+async fn handle_irc_message(raw_message: String, tcp_stream: &mut TcpStream) {
+	let raw_message = raw_message
+		.trim_start_matches('\0')
+		.trim_end_matches('\0').to_string();
+	let message = IRCMessageParsed::parse(raw_message);
+	let command = match IRCCommands::new(message.command.as_str()) {
+		Ok(val) => val,
+		Err(e) => {
+			//eprintln!("[DEBUG] {}", e);
+			IRCCommands::Unknown
+		}
+	};
+
+	command.format(message.clone());
+	if let IRCCommands::Ping = command {
+		let code: String = format!(":{}", message.data.trim());
+
+		if let Ok(message) = IRCCommands::Pong.craft(
+			"", code.as_str(), IRCContext::new()
+		) {
+			if let Err(e) = tcp_stream.write(
+				format!("{}\r\n", message.as_raw()).as_bytes()
+			).await {
+				eprintln!("Error while sending pong: {}", e)
+			}
+			println!("-> {}", message.as_raw());
+		} else {
+			eprintln!("Error can't send pong")
+		}
+	}
+
+	println!("{}", message.as_formatted());
+}
+
+
+async fn handle_message(
+	buf: [u8; 4096],
+	len: Result<usize, Error>,
+	memory: &mut Vec<u8>,
+	tcp_stream: &mut TcpStream
+) -> bool {
 	match len {
 		Ok(n) if n == 0 => {
 			println!("Disconnected from server");
-			None
+			return false
 		},
-		Ok(_) => {
-			let message = String::from_utf8_lossy(&buf).to_string();
-			println!("{}", message);
-			Some(message)
-		}
 		Err(err) => {
 			eprintln!("Error with server: {}", err);
-			None
+			return false
 		},
+		_ => {}
 	}
-}
+	let received_data = buf.to_vec();
+	//println!("[DEBUG] Raw data <{}>", String::from_utf8_lossy(&received_data));
+	//println!("[DEBUG] In memory before join <{}>", String::from_utf8_lossy(memory));
+	memory.extend_from_slice(&received_data);
+	//println!("[DEBUG] In memory <{}>", String::from_utf8_lossy(memory));
+	while let Some(split_idx) = memory
+		.windows(2)
+		.position(|window| window == b"\r\n") {
+		let message_bytes: Vec<u8>  = memory.drain(..=split_idx + 1).collect();
+		let message = String::from_utf8_lossy(&message_bytes).to_string();
+		//println!("[DEBUG] Drained from memory <{}>", message);
+		handle_irc_message(message, tcp_stream).await;
+	}
 
-async fn handle_irc_message(message: String, tcp_stream: &mut TcpStream) {
-	// TODO do proper handling with matches and stuff
-	if message.starts_with("PING") {
-		if let Some(colon_idx) = message.find(':') {
-			let code: &str = message[colon_idx + 1..].trim();
-			let message = IRCMessageParsed::craft(
-				"PONG", code, IRCContext::new()
-			).ok().unwrap();
-			// TODO handle error
-			tcp_stream.write(message.as_raw().as_bytes()).await.ok();
-			println!("-> {}", message.as_raw());
-		}
-	}
+	true
 }
 
 pub fn start_poll_thread(
@@ -80,12 +117,13 @@ pub fn start_poll_thread(
 ) -> JoinHandle<()> {
 	tokio::task::spawn(async move {
 		let mut stream: Option<TcpStream> = None;
+		let mut memory: Vec<u8> = Vec::new();
 		loop {
 			let send_rx = send_rx.clone();
 			let conn_rx = conn_rx.clone();
 			// TODO is this level of indent necessary ?
 			//println!("[DEBUG] Polling");
-			let mut buf: [u8; 1024] = [0; 1024];
+			let mut buf: [u8; 4096] = [0; 4096];
 			match stream.as_mut() {
 				None => {
 					stream = wait_for_connection(conn_rx).await;
@@ -100,11 +138,9 @@ pub fn start_poll_thread(
 							handle_command(tcp_stream, command).await
 						},
 						n = tcp_stream.read(&mut buf) => {
-							let message = handle_message(buf, n).await;
-							match message {
-								Some(message) => handle_irc_message(message, tcp_stream).await,
-								None => {stream = None}
-							};
+							if !handle_message(buf, n, &mut memory, tcp_stream).await {
+								stream = None
+							}
 						}
 					}
 				}
