@@ -3,17 +3,16 @@ use clap::{arg, ArgMatches, Command};
 use crate::irc::irc_context::IRCContext;
 use crate::utils::irc_comm_channels::IRCCommChannels;
 use crate::irc::irc_message_parsed::IRCMessageParsed;
+use crate::prompt_commands::utils::matches_to_string;
 
 pub async fn query<'a>(
 	args: Vec<&str>,
 	channels: IRCCommChannels<'a>,
 	ctx: &mut IRCContext
 ) -> Result<(), Box<dyn Error>> {
-	let args_ = args.clone();
 	let matches: ArgMatches = Command::new("query")
 		.args(&[
-			arg!([user] "user"),
-			// TODO finish that (returns a Vec, join it and it's done)
+			arg!(<user> "user"),
 			arg!(<message> ... "message to send").trailing_var_arg(true)
 		])
 		.try_get_matches_from_mut(args)?;
@@ -24,8 +23,8 @@ pub async fn query<'a>(
 
 	// TODO Match against user regex
 	ctx.channel = chan.to_string();
-	if args_.len() <= 3 {
-		let message = args_[2..].join(" ");
+	if let Some(message) = matches.try_get_many::<String>("message")? {
+		let message = matches_to_string(message.collect::<Vec<&String>>());
 		let irc_message = IRCMessageParsed {
 			prefix: "".to_string(),
 			command: "PRIVMSG".to_string(),

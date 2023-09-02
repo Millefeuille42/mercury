@@ -19,6 +19,7 @@ pub async fn join<'a>(args: Vec<&str>, channels: IRCCommChannels<'a>, ctx: &mut 
 		.map(|c| c.to_string())
 		.collect();
 
+	// TODO match against channel regex
 	// TODO Send one message for all
 	for chan in chans {
 		let ctx_: IRCContext = ctx.clone();
