@@ -77,7 +77,7 @@ impl Commands {
 }
 
 pub async fn execute<'a>(args: Vec<&str>, channels: IRCCommChannels<'a>, ctx: &mut IRCContext) -> Result<(), Box<dyn Error>> {
-	if let None = args.first() {
+	if args.first().is_none() {
 		return Err("command not found!".to_string().into())
 	}
 

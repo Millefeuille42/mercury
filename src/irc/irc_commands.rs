@@ -188,7 +188,7 @@ fn craft_join(data: &str) -> IRCMessageParsed {
     // TODO consider what to do if keys contain spaces
     let data: Vec<&str> = data.split_whitespace().collect();
     let empty = "";
-    let chans: String = add_hash_to_chan(data.get(0).unwrap_or(&empty));
+    let chans: String = add_hash_to_chan(data.first().unwrap_or(&empty));
     let keys: &str = data.get(1).unwrap_or(&empty);
 
     let data = format!("{chans} {keys}");
@@ -202,9 +202,9 @@ fn craft_join(data: &str) -> IRCMessageParsed {
 
 fn craft_part(data: &str) -> IRCMessageParsed {
     // TODO consider what to do if part message contains :
-    let data: Vec<&str> = data.split(":").collect();
+    let data: Vec<&str> = data.split(':').collect();
     let empty = "";
-    let chans: String = add_hash_to_chan(data.get(0).unwrap_or(&empty));
+    let chans: String = add_hash_to_chan(data.first().unwrap_or(&empty));
     let message: &str = data.get(1).unwrap_or(&empty);
 
     let data = format!("{chans} {message}");

@@ -1,5 +1,5 @@
 use crate::utils::irc_comm_channels::IRCCommChannels;
-use clap::{arg, Arg, ArgAction, ArgMatches, Command};
+use clap::{arg, ArgAction, ArgMatches, Command};
 use std::error::Error;
 use std::string::String;
 use crate::irc::irc_context::IRCContext;
@@ -12,16 +12,13 @@ pub async fn connect<'a>(
 ) -> Result<(), Box<dyn Error>> {
     let matches: ArgMatches = Command::new("connect")
         .args(&[
-            // TODO <host>
-			Arg::new("host")
-				.required(true),
-            arg!(-p --port [PORT] "6667")
+            arg!(<host> "hostname or ip of the server"),
+            arg!(-p --port [PORT] "port of the server (6667)")
                 .default_value_if("tls", "false", Some("6667"))
                 .default_value_if("tls", "true", Some("6697"))
                 .default_value(Some("6667")),
-            // TODO This is the detail, not an example
-            arg!(-P --password [PASSWORD] "MyPassword"),
-            arg!(-n --nick [NICK] "mercury")
+            arg!(-P --password [PASSWORD] "password of the server"),
+            arg!(-n --nick [NICK] "nickname")
                 .default_value(Some("mercury")),
             arg!(--tls).action(ArgAction::SetTrue),
         ])

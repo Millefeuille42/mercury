@@ -22,8 +22,8 @@ pub async fn join<'a>(args: Vec<&str>, channels: IRCCommChannels<'a>, ctx: &mut 
 	// TODO Send one message for all
 	for chan in chans {
 		let ctx_: IRCContext = ctx.clone();
-		let chan_key: Vec<&str> = chan.split(":").collect();
-		let chan: &str = chan_key.get(0).ok_or("chan is invalid")?;
+		let chan_key: Vec<&str> = chan.split(':').collect();
+		let chan: &str = chan_key.first().ok_or("chan is invalid")?;
 		ctx.channel = chan.to_string();
 		if let Some(key) = chan_key.get(1) {
 			ctx.channel = format!("{} {}", chan, key);
