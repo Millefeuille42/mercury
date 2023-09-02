@@ -28,18 +28,21 @@ async fn command_manager(command: String, channels: IRCCommChannels<'_>, ctx: &m
 
 	let args: Vec<&str> = command.split_whitespace().collect();
 
+	// TODO prevent sending messages or such if user is not connected
 	if let Err(err) = prompt_commands::commands::execute(args, channels, ctx).await {
 		eprintln!("{}", err)
 	}
 }
 
-async fn prompt_user(ctx: IRCContext) -> String {
+async fn prompt_user(_: IRCContext) -> String {
 	//println!("[DEBUG] Prompting");
 	let mut input = String::new();
-	print!("{}{}",
-		if ctx.nick.is_empty() { "".to_string() } else {format!("{}@", ctx.nick)},
-		ctx.channel
-	);
+	// TODO to put when using ncurses or such
+	// print!("{}{}",
+	// 	if ctx.nick.is_empty() { "".to_string() } else {format!("{}@", ctx.nick)},
+	// 	ctx.channel
+	// );
+	// io::stdout().flush().expect("Failed to print prompt");
 	io::stdin().read_line(&mut input).expect("Failed to read line");
 
 	return input.trim().to_string();
