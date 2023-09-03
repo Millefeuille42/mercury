@@ -49,10 +49,10 @@ impl IRCPrefixParsed {
 }
 
 pub struct IRCMessageParsed {
-	pub(crate) prefix: String,
-	pub(crate) command: String,
-	pub(crate) target: String,
-	pub(crate) data: String
+	pub prefix: String,
+	pub command: String,
+	pub target: String,
+	pub data: String
 }
 
 impl IRCMessageParsed {
