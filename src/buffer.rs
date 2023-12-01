@@ -20,7 +20,6 @@ impl Buffer {
 			let bytes: Vec<u8> = self.memory.drain(..=split_idx + n - 1).collect();
 			return Some(String::from_utf8_lossy(&bytes)
 				.trim_start_matches('\0')
-				.trim()
 				.to_string());
 		}
 		None
